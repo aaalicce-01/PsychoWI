@@ -1,7 +1,12 @@
 (async function() {
+  // ★★★★★ 实例管理 ★★★★★
+  const WI_INSTANCE_ID = 'psychowi-editor';
+  const WI_VERSION = '1.0.0';   // ← 以后每次发版只改这里
+  const __wiInstanceInfo = { id: WI_INSTANCE_ID, version: WI_VERSION, ts: Date.now(), kill: null };
+
   // ★ 版本检测：发现新版提示用户刷新
   (async function checkWiUpdate() {
-    const CURRENT_VERSION = '1.0.0';
+    const CURRENT_VERSION = WI_VERSION;
     try {
       const r = await fetch(
         'https://cdn.jsdelivr.net/gh/aaalicce-01/PsychoWI@main/version.json?_=' + Date.now(),
@@ -11,7 +16,6 @@
       const data = await r.json();
       if (data.version && data.version !== CURRENT_VERSION) {
         console.log(`[PsychoWI] 检测到新版本 ${data.version}（当前 ${CURRENT_VERSION}）`);
-        // 延迟 3 秒，等酒馆加载完再提示
         setTimeout(() => {
           if (window.toastr) {
             window.toastr.warning(
@@ -28,11 +32,6 @@
       // 静默失败，不影响主功能
     }
   })();
-
-  // ★★★★★ 实例管理 ★★★★★
-  const WI_INSTANCE_ID = 'psychowi-editor';
-  const WI_VERSION = '1.0.0';   // ← 以后每次发版改这里
-  const __wiInstanceInfo = { id: WI_INSTANCE_ID, version: WI_VERSION, ts: Date.now(), kill: null };
 
   // 比较版本号：a > b 返回正数
   function __wiCompareVer(a, b) {
