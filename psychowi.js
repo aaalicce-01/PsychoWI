@@ -1,4 +1,34 @@
 (async function() {
+  // ★ 版本检测：发现新版提示用户刷新
+  (async function checkWiUpdate() {
+    const CURRENT_VERSION = '1.0.0';
+    try {
+      const r = await fetch(
+        'https://cdn.jsdelivr.net/gh/aaalicce-01/PsychoWI@main/version.json?_=' + Date.now(),
+        { cache: 'no-store' }
+      );
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.version && data.version !== CURRENT_VERSION) {
+        console.log(`[PsychoWI] 检测到新版本 ${data.version}（当前 ${CURRENT_VERSION}）`);
+        // 延迟 3 秒，等酒馆加载完再提示
+        setTimeout(() => {
+          if (window.toastr) {
+            window.toastr.warning(
+              `PsychoWI 有新版本 ${data.version}（当前 ${CURRENT_VERSION}）。刷新页面（F5）即可更新。`,
+              'PsychoWI 更新提示',
+              { timeOut: 0, extendedTimeOut: 0, tapToDismiss: true }
+            );
+          } else {
+            console.log(`[PsychoWI] 请刷新页面更新到 ${data.version}`);
+          }
+        }, 3000);
+      }
+    } catch (e) {
+      // 静默失败，不影响主功能
+    }
+  })();
+
   // ★★★★★ 实例管理 ★★★★★
   const WI_INSTANCE_ID = 'psychowi-editor';
   const WI_VERSION = '1.0.0';   // ← 以后每次发版改这里
