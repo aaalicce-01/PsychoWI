@@ -7214,6 +7214,35 @@
       $('body').css('user-select', 'none');
     });
 
+    // ★ 触屏拖动
+    $bar.on('touchstart', function (ev) {
+      if (state.isFullscreen) return;
+      const $t = $(ev.target);
+      if ($t.closest('.wi-tab, button, input, select, a, label').length) return;
+      const touch = ev.originalEvent.touches[0];
+      if (!touch) return;
+
+      const rect = $panel[0].getBoundingClientRect();
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      dragging = true;
+
+      cachedW = rect.width;
+      cachedH = rect.height;
+      cachedVW = (window.top && window.top.innerWidth) ? window.top.innerWidth : window.innerWidth;
+      cachedVH = (window.top && window.top.innerHeight) ? window.top.innerHeight : window.innerHeight;
+
+      $panel.css({
+        right: 'auto',
+        bottom: 'auto',
+        left: startLeft + 'px',
+        top: startTop + 'px',
+        willChange: 'left, top',
+      });
+    });
+
     // 拖动时缓存的量（避免每次 mousemove 触发 reflow）
     let cachedW = 0, cachedH = 0, cachedVW = 0, cachedVH = 0;
 
@@ -7236,6 +7265,26 @@
       $panel[0].style.top = newTop + 'px';
     });
 
+    // ★ 触屏拖动（move）
+    $(__wiRootDoc).on('touchmove', function (ev) {
+      if (!dragging) return;
+      const touch = ev.originalEvent.touches[0];
+      if (!touch) return;
+      ev.preventDefault();   // 阻止页面滚动
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      let newLeft = startLeft + dx;
+      let newTop = startTop + dy;
+
+      newLeft = Math.max(80 - cachedW, Math.min(cachedVW - 80, newLeft));
+      newTop = Math.max(0, Math.min(cachedVH - 40, newTop));
+
+      $panel[0].style.left = newLeft + 'px';
+      $panel[0].style.top = newTop + 'px';
+    });
+
     $(__wiRootDoc).on('mouseup', function () {
       if (!dragging) return;
       dragging = false;
@@ -7244,6 +7293,19 @@
       $panel.css('willChange', '');
 
       // 保存位置
+      const rect = $panel[0].getBoundingClientRect();
+      const layout = loadPanelLayout() || {};
+      layout.left = Math.round(rect.left);
+      layout.top = Math.round(rect.top);
+      savePanelLayout(layout);
+    });
+
+    // ★ 触屏拖动（end）
+    $(__wiRootDoc).on('touchend touchcancel', function () {
+      if (!dragging) return;
+      dragging = false;
+      $panel.css('willChange', '');
+
       const rect = $panel[0].getBoundingClientRect();
       const layout = loadPanelLayout() || {};
       layout.left = Math.round(rect.left);
@@ -7309,9 +7371,41 @@
       $('body').css('user-select', 'none');
     }
 
+    function beginResizeTouch(mode, ev) {
+      if (state.isFullscreen) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const touch = ev.touches[0];
+      if (!touch) return;
+
+      const rect = panelEl.getBoundingClientRect();
+      resizing = mode;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      startW = rect.width;
+      startH = rect.height;
+      startL = rect.left;
+      startT = rect.top;
+      vw = (window.top && window.top.innerWidth) ? window.top.innerWidth : window.innerWidth;
+      vh = (window.top && window.top.innerHeight) ? window.top.innerHeight : window.innerHeight;
+
+      $panel.css({
+        right: 'auto',
+        bottom: 'auto',
+        left: startL + 'px',
+        top: startT + 'px',
+        willChange: 'width, height',
+      });
+    }
+
     edgeR.addEventListener('mousedown', (ev) => beginResize('right', ev));
     edgeB.addEventListener('mousedown', (ev) => beginResize('bottom', ev));
     corner.addEventListener('mousedown', (ev) => beginResize('corner', ev));
+    // ★ 触屏
+    edgeR.addEventListener('touchstart', (ev) => beginResizeTouch('right', ev), { passive: false });
+    edgeB.addEventListener('touchstart', (ev) => beginResizeTouch('bottom', ev), { passive: false });
+    corner.addEventListener('touchstart', (ev) => beginResizeTouch('corner', ev), { passive: false });
 
     const MIN_W = 500, MIN_H = 400;
     const MAX_W = () => vw - 40;
@@ -7336,10 +7430,47 @@
       }
     });
 
+    // ★ 触屏缩放
+    $(__wiRootDoc).on('touchmove', function (ev) {
+      if (!resizing) return;
+      const touch = ev.originalEvent.touches[0];
+      if (!touch) return;
+      ev.preventDefault();
+
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+
+      if (resizing === 'right' || resizing === 'corner') {
+        let newW = startW + dx;
+        newW = Math.max(MIN_W, Math.min(MAX_W(), newW));
+        panelEl.style.width = newW + 'px';
+      }
+      if (resizing === 'bottom' || resizing === 'corner') {
+        let newH = startH + dy;
+        newH = Math.max(MIN_H, Math.min(MAX_H(), newH));
+        panelEl.style.height = newH + 'px';
+      }
+    });
+
     $(__wiRootDoc).on('mouseup', function () {
       if (!resizing) return;
       resizing = null;
       $('body').css('user-select', '');
+      $panel.css('willChange', '');
+
+      const rect = panelEl.getBoundingClientRect();
+      const layout = loadPanelLayout() || {};
+      layout.width = Math.round(rect.width);
+      layout.height = Math.round(rect.height);
+      layout.left = Math.round(rect.left);
+      layout.top = Math.round(rect.top);
+      savePanelLayout(layout);
+    });
+
+    // ★ 触屏缩放结束
+    $(__wiRootDoc).on('touchend touchcancel', function () {
+      if (!resizing) return;
+      resizing = null;
       $panel.css('willChange', '');
 
       const rect = panelEl.getBoundingClientRect();
